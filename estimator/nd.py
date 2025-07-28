@@ -579,6 +579,117 @@ class SparseTernary(NoiseDistribution):
     def __repr__(self):
         return str(self)
 
+from math import comb
+class SparseBinomial(NoiseDistribution):
+    """
+    Distribution of vectors of length `n` with exactly `h` non-zero positions,
+    each non-zero drawn from a centered binomial CBD_eta, conditioned to be non-zero.
+
+    EXAMPLE::
+
+        >>> from estimator import *
+        >>> ND.SparseBinomial(8, eta=2, n=256)
+        B(h=8, eta=2, n=256)
+    """
+    def __init__(self, h, eta=2, n=None):
+        h = int(h)
+        eta = int(eta)
+        if h < 0 or eta <= 0:
+            raise ValueError("Require h ≥ 0 and eta > 0.")
+
+        # # For eta=1, fall back to SparseTernary
+        # if eta == 1:
+        #     from estimator import ND
+        #     # p = m = h // 2 rounding balanced
+        #     return ND.SparseTernary(h//2, h - h//2, n)
+
+        self.h = h
+        self.eta = eta
+        self.n = int(n) if n is not None else 0
+
+        # Parameters of the underlying CBD_eta
+        # Prob. that CBD_eta == 0
+        P0 = RR(comb(2*eta, eta)) / RR(2**(2*eta))
+        # Unconditional variance Var(X)=eta/2
+        var_X = RR(eta) / 2
+        # Conditional variance Var(X|X!=0)
+        var_cond = var_X / (1 - P0)
+
+        # Per-coordinate variance: sparsity factor h/n
+        var_per_coord = RR(h) / RR(self.n) * var_cond if self.n else 0
+        stddev = sqrt(var_per_coord)
+
+        # Mean zero, density = h/n
+        mean = RR(0)
+        density = RR(h) / RR(self.n) if self.n else RR(0)
+
+        super().__init__(
+            n=self.n,
+            mean=mean,
+            stddev=stddev,
+            bounds=( -eta, eta ),
+            _density=density
+        )
+
+    def __hash__(self):
+        return hash(("SparseBinomial", self.n, self.h, self.eta))
+
+    def resize(self, new_n):
+        """
+        Return a sparse binomial distribution with same h, eta but new dimension new_n.
+        """
+        return SparseBinomial(self.h, self.eta, new_n)
+
+    @property
+    def hamming_weight(self):
+        return self.h
+
+    @property
+    def is_sparse(self):
+        return True
+    
+    @property
+    def max_coeff(self):
+        return self.eta 
+
+    def support_size(self, fraction=1.0):
+        """
+        Number of vectors covering `fraction` of probability.
+        = binom(n, h) * (2*eta)**h
+        """
+        from sageall import binomial
+        return ceil(binomial(self.n, self.h) * (2*self.eta)**self.h * RR(fraction))
+
+    def split_balanced(self, new_n, new_hw=None):
+        """
+        Split the h nonzeros into two halves of dimensions new_n and n-new_n.
+        Chooses new_hw nonzeros in the first half (most likely ratio h/n).
+        Returns (SparseBinomial, SparseBinomial).
+        """
+        n, hw = self.n, self.h
+        if new_hw is None:
+            new_hw = int(QQ(hw * new_n / n).round('down'))
+        left = SparseBinomial(new_hw, self.eta, new_n)
+        right = SparseBinomial(hw - new_hw, self.eta, n - new_n)
+        return left, right
+
+    def split_probability(self, new_n, new_hw=None):
+        """
+        Probability of obtaining exactly new_hw nonzeros in the first new_n coords
+        under uniform choice of support.
+        """
+        from sageall import binomial
+        n, h = self.n, self.h
+        if new_hw is None:
+            new_hw = int(QQ(h * new_n / n).round('down'))
+        return (binomial(new_n, new_hw) * binomial(n-new_n, h-new_hw)) / binomial(n, h)
+
+    def __str__(self):
+        return f"B(h={self.h}, eta={self.eta}, n={int(self.n)})"
+
+    def __repr__(self):
+        return str(self)
+
 
 def SparseBinary(hw, n=None):
     """
