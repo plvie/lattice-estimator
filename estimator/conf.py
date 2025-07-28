@@ -3,7 +3,7 @@
 Default values.
 """
 
-from .simulator import GSA
+from .simulator import GSA, CN11
 from .reduction import RC
 from sage.all import exp
 
