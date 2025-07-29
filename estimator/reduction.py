@@ -1000,6 +1000,24 @@ def cost(cost_model, beta, d, B=None, predicate=True, **kwds):
     return cost
 
 
+class Blaster(ReductionCost):
+    __name__ = "Blaster"
+
+    def __call__(self, beta, d, B=None):
+        """
+        Custom cost model for blaster:
+        - enumeration by pruning for beta <= 70 (CheNgu12)
+        - sieving via G6K approximation (ADPS16 classical) for beta > 70
+        """
+        # ensure beta is integer
+        beta = int(beta)
+        if beta <= 70:
+            # enumeration cost
+            return CheNgu12()(beta, d, B)
+        else:
+            # sieving cost
+            return ADPS16(mode="classical")(beta, d, B)
+
 beta = ReductionCost.beta
 delta = ReductionCost.delta
 
@@ -1019,3 +1037,4 @@ class RC:
     GJ21 = GJ21()
     LaaMosPol14 = LaaMosPol14()
     ChaLoy21 = ChaLoy21()
+    Blaster = Blaster()
