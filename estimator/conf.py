@@ -3,7 +3,7 @@
 Default values.
 """
 
-from .simulator import GSA, CN11, LGSA
+from .simulator import GSA, CN11, ZGSA
 from .reduction import RC
 from sage.all import exp
 
@@ -13,8 +13,8 @@ This influences the concrete estimated cost of attacks.
 """
 red_cost_model = RC.Blaster
 red_cost_model_classical_poly_space = RC.ABLR21
-red_shape_model = "GSA"
-red_simulator = GSA
+red_shape_model = "CN11"
+red_simulator = CN11
 
 mitm_opt = "analytical"
 max_n_cache = 10000

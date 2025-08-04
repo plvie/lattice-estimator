@@ -645,7 +645,11 @@ class ADPS16(ReductionCost):
 
         c = c[self.mode]
 
-        return ZZ(2) ** RR(c * beta)
+        # before We choose to ignore this polynomial factor, and rather evaluate only the core SVP hardness, that is the cost of one call to an SVP oracle in dimension , which is clearly a pessimistic estimation (from the de-fender’s point of view).
+        # from the paper
+        #but blaster need it so
+        repeat = self.svp_repeat(beta, d)
+        return (ZZ(2) ** RR(c * beta) + self.LLL(d, B=B)) * repeat
 
 
 class ChaLoy21(ReductionCost):
@@ -1010,13 +1014,13 @@ class Blaster(ReductionCost):
         - sieving via G6K approximation (ADPS16 classical) for beta > 70
         """
         # ensure beta is integer
-        beta = int(beta)
+        # beta = int(beta)
         if beta <= 70:
             # enumeration cost
             return CheNgu12()(beta, d, B)
-        else:
-            # sieving cost
-            return ADPS16(mode="classical")(beta, d, B)
+        # else:
+        #     # sieving cost
+        return Kyber(nn="classical")(beta, d, B)
 
 beta = ReductionCost.beta
 delta = ReductionCost.delta
