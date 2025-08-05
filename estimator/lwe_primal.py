@@ -394,14 +394,14 @@ class PrimalHybrid:
         else:
             # we scaled the lattice so that χ_e is what we want
             eta = PrimalHybrid.svp_dimension(r, params.Xe)
+            eta = max(eta,70) # because sieving the overhead of g6k call (compute GSO coefficients ect) is more important that just do the sieving if < 80 (so to reduce the number of try set at 80 min)
             if eta > d:
                 # Lattice reduction was not strong enough to "reveal" the LWE solution.
                 # A larger `beta` should perhaps be attempted.
                 return Cost(rop=oo)
-            svp_cost = costf(red_cost_model, eta, eta)
+            svp_cost = costf(red_cost_model, eta, eta+10) #essayons + 10 pour préciser l'overhead l'idée c'est de trouver la valeur tel que la répartition est équivalente
             # when η ≪ β, lifting may be a bigger cost
-            svp_cost["rop"] += PrimalHybrid.babai_cost(d - eta)["rop"]
-
+            svp_cost["rop"] += PrimalHybrid.babai_cost(d - eta)["rop"] + d**3 # d**3 overhead
         # 3. Search
         # We need to do one BDD call at least
         search_space, probability, hw = 1, 1.0, 0
@@ -514,9 +514,9 @@ class PrimalHybrid:
             **kwds,
         )
 
-        # step 1. optimize β
+        # step 1. optimize β # 70 so i can call G6K BKZ (and with the jump it reduce a lot the time needed)
         with local_minimum(
-            40, baseline_cost["beta"] + 1, precision=2, log_level=log_level + 1
+            60, baseline_cost["beta"] + 1, precision=2, log_level=log_level + 1
         ) as it:
             for beta in it:
                 it.update(f(beta))

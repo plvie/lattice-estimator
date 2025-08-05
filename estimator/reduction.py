@@ -1004,8 +1004,7 @@ class Blaster(ReductionCost):
     __name__ = "Blaster"
 
     def __call__(self, beta, d, B=None):
-        # ensure beta is integer
-        # beta = int(beta)
+        #make a cost that is as a huge overhead for small beta
         return Kyber()(beta, d, B)
 
 beta = ReductionCost.beta
