@@ -263,8 +263,8 @@ class PrimalUSVP:
         # step 1. find β
 
         with local_minimum(
-            max(cost_gsa["beta"] - ceil(0.10 * cost_gsa["beta"]), 40),
-            max(cost_gsa["beta"] + ceil(0.20 * cost_gsa["beta"]), 40),
+            max(cost_gsa["beta"] - ceil(0.20 * cost_gsa["beta"]), 40),
+            max(cost_gsa["beta"] + ceil(0.40 * cost_gsa["beta"]), 40),
         ) as it:
             for beta in it:
                 it.update(f(beta=beta, **kwds))
@@ -384,7 +384,7 @@ class PrimalHybrid:
             tau = False
             d -= 1
 
-        r = simulator(d, params.n - zeta, params.q, beta, xi=xi, tau=tau, dual=True)
+        r = simulator(d, params.n - zeta, params.q, beta, xi=xi, tau=tau, dual=False)
 
         bkz_cost = costf(red_cost_model, beta, d)
 
@@ -467,7 +467,7 @@ class PrimalHybrid:
         # 4. Repeat whole experiment ~1/prob times
         if probability and not RR(probability).is_NaN():
             ret = ret.repeat(
-                prob_amplify(0.99, probability),
+                prob_amplify(0.999999999999, probability),
             )
         else:
             return Cost(rop=oo)
