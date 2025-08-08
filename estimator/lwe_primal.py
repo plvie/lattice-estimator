@@ -467,7 +467,7 @@ class PrimalHybrid:
         # 4. Repeat whole experiment ~1/prob times
         if probability and not RR(probability).is_NaN():
             ret = ret.repeat(
-                prob_amplify(0.999, probability), # increase the amplify from 0.99 to 0.999 to add the overhead
+                prob_amplify(0.99, probability),
             )
         else:
             return Cost(rop=oo)
@@ -516,8 +516,9 @@ class PrimalHybrid:
         )
 
         # step 1. optimize β # 70 so i can call G6K BKZ (and with the jump it reduce a lot the time needed)
+        #1 is not enough it need to search above to better reduce it
         with local_minimum(
-            60, max(62,baseline_cost["beta"] + 1), precision=2, log_level=log_level + 1
+            40, baseline_cost["beta"] + 100, precision=2, log_level=log_level + 1
         ) as it:
             for beta in it:
                 it.update(f(beta))

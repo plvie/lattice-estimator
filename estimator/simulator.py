@@ -80,7 +80,7 @@ def CN11(d, n, q, beta, xi=1, tau=1, dual=False, ignore_qary=False):
     assert 2 <= beta <= d
 
     def f(r, beta):
-        return simulate(r, BKZ.EasyParam(beta))[0]
+        return simulate(r, BKZ.EasyParam(beta, max_loops=20))[0]
 
     return qary_simulator(f=f, d=d, n=n, q=q, beta=beta, xi=xi, tau=tau, dual=dual, ignore_qary=ignore_qary)
 
