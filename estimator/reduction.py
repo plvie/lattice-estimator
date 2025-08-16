@@ -1005,7 +1005,8 @@ class Blaster(ReductionCost):
 
     def __call__(self, beta, d, B=None):
         #make a cost that is as a huge overhead for small beta
-        return Kyber()(beta, d, B)
+        cost = Kyber()(beta, d, B) # decrease from a scalar factor
+        return cost / 4
 
 beta = ReductionCost.beta
 delta = ReductionCost.delta
