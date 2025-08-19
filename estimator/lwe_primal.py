@@ -349,11 +349,11 @@ from typing import Optional, Tuple
 class PrimalHybrid:
     @classmethod
     def babai_cost(cls, d):
-        return Cost(rop= 4 * 8 * max(d, 1) ** 2) # cost of the implementation of babai (TF32) compared to the BKZ
+        return Cost(rop= 5 * 8 * max(d, 1) ** 2) # cost of the implementation of babai (TF32) compared to the BKZ (the value is not here to be exact is to scaled the time needed for both)
     
     @classmethod
     def babai_cost_fp64(cls, d):
-        return Cost(rop= 16 * 4 * 8 * max(d, 1) ** 2) # cost of the implementation of babai fp64 compared to the BKZ
+        return Cost(rop= 15 * 8 * max(d, 1) ** 2) # cost of the implementation of babai fp64 compared to the BKZ
 
     @classmethod
     def babai_feasible(cls, r, vec_bound: Optional[np.ndarray] = None, rho: Optional[float] = None, safety: float = 1.0):
@@ -410,7 +410,7 @@ class PrimalHybrid:
             for i, _ in enumerate(r):
                 # chosen since RC.ADPS16(1754, 1754).log(2.) = 512.168000000000
                 j = d - 1754 + i
-                if (j < d) and (gaussian_heuristic_log_input(r[j:]) < D.stddev** 2 * (d - j)):
+                if (j < d) and (gaussian_heuristic_log_input(r[j:]) < D.stddev**2 * (d - j)):
                     return ZZ(d - (j - 1))
             return ZZ(2)
 
@@ -478,31 +478,28 @@ class PrimalHybrid:
         bkz_cost = costf(red_cost_model, beta, d)
 
         # 2. Required SVP dimension η
-        # Vérif Babai sur le profil estimé
-        h = getattr(params.Xs, "hamming_weight", 0)
-        u_rest = h - 2
-        y_est = 1.0
-        m_eff = int(m) if m is not oo else int(d - (params.n - zeta))
-        vec_bound = estimate_target_upper_bound_ternary_vec(
-            n=params.n, w=getattr(params.Xs, "hamming_weight", 0),
-            sigma=float(params.Xe.stddev),
-            k=zeta, m=m_eff, q=params.q
-        )
-        ok_babai, worst_i, worst_margin, margins_diag = PrimalHybrid.babai_feasible(
-            r, vec_bound=vec_bound, safety=0.85
-        )
+        # # Vérif Babai sur le profil estimé
+        # h = getattr(params.Xs, "hamming_weight", 0)
+        # u_rest = h - 2
+        # y_est = 1.0
+        # m_eff = int(m) if m is not oo else int(d - (params.n - zeta))
+        # vec_bound = estimate_target_upper_bound_ternary_vec(
+        #     n=params.n, w=getattr(params.Xs, "hamming_weight", 0),
+        #     sigma=float(params.Xe.stddev),
+        #     k=zeta, m=m_eff, q=params.q
+        # )
+        # ok_babai, worst_i, worst_margin, margins_diag = PrimalHybrid.babai_feasible(
+        #     r, vec_bound=vec_bound, safety=0.85
+        # )
 
         # P_babai = PrimalHybrid.babai_prob_expected(
         #     r, D=params.Xe, y=y_est, m=m_eff, u_rest=u_rest, kappa=1.0, safety=1.0
         # )
         # target_success = 0.9 
-        if ok_babai:
+        if babai:
             eta = 2
-            if params.q <= 2**20:
-                svp_cost = PrimalHybrid.babai_cost(d)
-            else:
-                svp_cost = PrimalHybrid.babai_cost_fp64(d)
-        elif not babai: # force first one if babai
+            svp_cost = PrimalHybrid.babai_cost_fp64(d)
+        else:
             eta = PrimalHybrid.svp_dimension(r, params.Xe)
             eta = max(eta,70) # just the same as BKZ G6K is much a overhead if < 70
                 
@@ -513,9 +510,6 @@ class PrimalHybrid:
             svp_cost = costf(red_cost_model, eta, eta)
             # when η ≪ β, lifting may be a bigger cost
             svp_cost["rop"] += PrimalHybrid.babai_cost(d - eta)["rop"]
-        else:
-            svp_cost = Cost(rop=oo)
-            eta = d
         # 3. Search
         # We need to do one BDD call at least
         search_space, probability, hw = 1, 1.0, 0
@@ -538,7 +532,7 @@ class PrimalHybrid:
             hw = 1
             while hw < min(h, zeta):
                 new_search_space = binomial(zeta, hw) * base**hw
-                if svp_cost.repeat(ssf(search_space + new_search_space))["rop"] >= bkz_cost["rop"]:
+                if svp_cost.repeat(ssf(search_space + new_search_space))["rop"] >= bkz_cost["rop"] or hw == 3:
                     break
                 search_space += new_search_space
                 probability += prob_drop(params.n, h, zeta, fail=hw)
@@ -565,11 +559,12 @@ class PrimalHybrid:
         ret["zeta"] = zeta
         ret["|S|"] = search_space
         ret["h_"] = hw-1
+        ret["prob_babai"] = round(float(prob_babai(r, sqrt(d) * params.Xe.stddev)), 2)
         ret["d"] = d
         ret["prob"] = probability
 
         ret.register_impermanent(
-            {"|S|": False, "h_": False},
+            {"|S|": False, "h_": False, "prob_babai": False},
             rop=True,
             red=True,
             svp=True,
@@ -581,7 +576,7 @@ class PrimalHybrid:
         # 4. Repeat whole experiment ~1/prob times
         if probability and not RR(probability).is_NaN():
             ret = ret.repeat(
-                prob_amplify(0.99, probability), # don't do so much iterations because the overhead is huge
+                prob_amplify(0.99, probability),
             )
         else:
             return Cost(rop=oo)
@@ -629,10 +624,9 @@ class PrimalHybrid:
             **kwds,
         )
 
-        # step 1. optimize β # 70 so i can call G6K BKZ (and with the jump it reduce a lot the time needed)
-        #1 is not enough it need to search above to better reduce it
+        # step 1. optimize β # keep lower bound it can be useful
         with local_minimum(
-            50, baseline_cost["beta"] + 50, precision=1, log_level=log_level + 1
+            40, baseline_cost["beta"] + 50, precision=1, log_level=log_level + 1
         ) as it:
             for beta in it:
                 it.update(f(beta))
