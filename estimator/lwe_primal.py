@@ -348,12 +348,8 @@ from typing import Optional, Tuple
 
 class PrimalHybrid:
     @classmethod
-    def babai_cost(cls, d):
-        return Cost(rop= 5 * 8 * max(d, 1) ** 2) # cost of the implementation of babai (TF32) compared to the BKZ (the value is not here to be exact is to scaled the time needed for both)
-    
-    @classmethod
     def babai_cost_fp64(cls, d):
-        return Cost(rop= 15 * 8 * max(d, 1) ** 2) # cost of the implementation of babai fp64 compared to the BKZ
+        return Cost(rop= 12 * 16 * 8 * max(d, 1) ** 2) # cost of the implementation of babai fp64 compared to the BKZ
 
     @classmethod
     def babai_feasible(cls, r, vec_bound: Optional[np.ndarray] = None, rho: Optional[float] = None, safety: float = 1.0):
@@ -498,7 +494,7 @@ class PrimalHybrid:
         # target_success = 0.9 
         if babai:
             eta = 2
-            svp_cost = PrimalHybrid.babai_cost_fp64(d)
+            svp_cost = PrimalHybrid.babai_cost_fp64(d - (params.n - zeta)) # reduce it by checking only the error part
         else:
             eta = PrimalHybrid.svp_dimension(r, params.Xe)
             eta = max(eta,70) # just the same as BKZ G6K is much a overhead if < 70
@@ -532,7 +528,7 @@ class PrimalHybrid:
             hw = 1
             while hw < min(h, zeta):
                 new_search_space = binomial(zeta, hw) * base**hw
-                if svp_cost.repeat(ssf(search_space + new_search_space))["rop"] >= bkz_cost["rop"] or hw == 3:
+                if svp_cost.repeat(ssf(search_space + new_search_space))["rop"] >= bkz_cost["rop"]:
                     break
                 search_space += new_search_space
                 probability += prob_drop(params.n, h, zeta, fail=hw)
